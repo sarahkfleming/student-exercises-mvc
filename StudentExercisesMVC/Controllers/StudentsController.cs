@@ -4,8 +4,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Configuration;
+using StudentExercises;
+using StudentExercises.Models.ViewModels;
 using StudentExercisesMVC.Models;
 
 namespace StudentExercisesMVC.Controllers
@@ -34,8 +37,10 @@ namespace StudentExercisesMVC.Controllers
                 conn.Open();
                 using (SqlCommand cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = @" SELECT s.Id, s.FirstName, s.LastName, s.SlackHandle, s.CohortId
-                                                            FROM Student s";
+                    cmd.CommandText = @" SELECT s.Id, s.FirstName, s.LastName, s.SlackHandle, s.CohortId,
+                                                                            c.Id, c.CohortName
+                                                            FROM Student s
+                                                            LEFT JOIN Cohort c ON s.CohortId = c.Id";
                     SqlDataReader reader = cmd.ExecuteReader();
 
                     List<Student> students = new List<Student>();
@@ -47,7 +52,12 @@ namespace StudentExercisesMVC.Controllers
                             FirstName = reader.GetString(reader.GetOrdinal("FirstName")),
                             LastName = reader.GetString(reader.GetOrdinal("LastName")),
                             SlackHandle = reader.GetString(reader.GetOrdinal("SlackHandle")),
-                            CohortId = reader.GetInt32(reader.GetOrdinal("CohortId"))
+                            CohortId = reader.GetInt32(reader.GetOrdinal("CohortId")),
+                            Cohort = new Cohort()
+                            {
+                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                                CohortName = reader.GetString(reader.GetOrdinal("CohortName"))
+                            }
                         };
 
                         students.Add(student);
@@ -69,9 +79,27 @@ namespace StudentExercisesMVC.Controllers
         }
 
         // GET: Student/Create
-        //public ActionResult Create()
-        //{
-        //    // code above here
+        [HttpGet]
+        public ActionResult Create()
+        {
+            var viewModel = new StudentCreateViewModel();
+            var cohorts = GetAllCohorts();
+            var selectItems = cohorts
+                .Select(cohort => new SelectListItem
+                {
+                    Text = cohort.CohortName,
+                    Value = cohort.Id.ToString()
+                })
+                .ToList();
+
+            selectItems.Insert(0, new SelectListItem
+            {
+                Text = "Choose cohort...",
+                Value = "0"
+            });
+            viewModel.Cohorts = selectItems;
+            return View(viewModel);
+        }
 
         //    //reader.Close();
         //    //var viewModel = new StudentCreateViewModel()
@@ -80,22 +108,29 @@ namespace StudentExercisesMVC.Controllers
         //    //};
         //    //return View(cohorts);
 
-        //}
 
         // POST: Student/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Create(IFormCollection collection)
+        public async Task<ActionResult> Create(StudentCreateViewModel model)
         {
-            try
+            using (SqlConnection conn = Connection)
             {
-                // TODO: Add insert logic here
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"INSERT INTO Student
+                ( FirstName, LastName, SlackHandle, CohortId )
+                VALUES
+                ( @firstName, @lastName, @slackHandle, @cohortId )";
+                    cmd.Parameters.Add(new SqlParameter("@firstName", model.Student.FirstName));
+                    cmd.Parameters.Add(new SqlParameter("@lastName", model.Student.LastName));
+                    cmd.Parameters.Add(new SqlParameter("@slackHandle", model.Student.SlackHandle));
+                    cmd.Parameters.Add(new SqlParameter("@cohortId", model.Student.CohortId));
+                    cmd.ExecuteNonQuery();
 
-                return RedirectToAction(nameof(Index));
-            }
-            catch
-            {
-                return View();
+                    return RedirectToAction(nameof(Index));
+                }
             }
         }
 
@@ -118,14 +153,17 @@ namespace StudentExercisesMVC.Controllers
                     conn.Open();
                     using (SqlCommand cmd = conn.CreateCommand())
                     {
-                        cmd.CommandText = @" INSERT INTO Student (FirstName, LastName, SlackHandle, CohortId)
-                                        VALUES (@FirstName, @LastName, @SlackHandle, @CohortId)
-                                        WHERE Id = @Id";
-                        cmd.Parameters.Add(new SqlParameter("@id", id));
+                        cmd.CommandText = @"UPDATE Student 
+                            SET FirstName = @FirstName,
+                             LastName = @LastName,
+                             SlackHandle = @SlackHandle,
+                             CohortId = @CohortId
+                                    WHERE Id = @Id";
                         cmd.Parameters.Add(new SqlParameter("@FirstName", student.FirstName));
                         cmd.Parameters.Add(new SqlParameter("@LastName", student.LastName));
                         cmd.Parameters.Add(new SqlParameter("@SlackHandle", student.SlackHandle));
                         cmd.Parameters.Add(new SqlParameter("@CohortId", student.CohortId));
+                        cmd.Parameters.Add(new SqlParameter("@id", id));
 
                         SqlDataReader reader = cmd.ExecuteReader();
 
@@ -169,9 +207,25 @@ namespace StudentExercisesMVC.Controllers
         {
             try
             {
+                using (SqlConnection conn = Connection)
+                {
+                    conn.Open();
+                    using (SqlCommand cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = "DELETE FROM StudentExercise WHERE StudentId = @id; DELETE FROM Student WHERE Id = @id";
 
+                        cmd.Parameters.Add(new SqlParameter("@id", id));
 
-                return RedirectToAction(nameof(Index));
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        if (rowsAffected > 0)
+                        {
+                            //return new StatusCodeResult(StatusCodes.Status204NoContent);
+                            return RedirectToAction(nameof(Index));
+                        }
+                        throw new Exception("No rows affected");
+                    }
+                }
+
             }
             catch
             {
@@ -208,6 +262,32 @@ namespace StudentExercisesMVC.Controllers
 
                     reader.Close();
                     return theStudent;
+                }
+            }
+        }
+        private List<Cohort> GetAllCohorts()
+        {
+            using (SqlConnection conn = Connection)
+            {
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = "SELECT Id, CohortName FROM Cohort";
+                    SqlDataReader reader = cmd.ExecuteReader();
+
+                    List<Cohort> cohorts = new List<Cohort>();
+                    while (reader.Read())
+                    {
+                        cohorts.Add(new Cohort
+                        {
+                            Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                            CohortName = reader.GetString(reader.GetOrdinal("CohortName")),
+                        });
+                    }
+
+                    reader.Close();
+
+                    return cohorts;
                 }
             }
         }

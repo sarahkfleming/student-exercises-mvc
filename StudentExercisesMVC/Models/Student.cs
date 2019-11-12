@@ -31,12 +31,5 @@ namespace StudentExercisesMVC.Models
 
         public List<Exercise> Exercises { get; set; } = new List<Exercise>();
 
-        public string FullName
-        {
-            get
-            {
-                return $"{FirstName} {LastName}";
-            }
-        }
     }
 }

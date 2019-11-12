@@ -1,21 +1,49 @@
-﻿@model System.Collections.Generic.List<Student>
+﻿@model StudentExercises.Models.ViewModels.StudentInstructorViewModel
+
 @{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Students & Instructors";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://docs.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<h2>@ViewData["Title"]</h2>
 
-    @*@for (int i = 0; i < 4; i++)
-    {
-        <div>Hi @i</div>;
-    }*@
+<h4>Students</h4>
 
-    @*You HAVE to use the word "Model" below*@
-    @*@foreach(Student aStudent in Model)
-    {
-        <div>@aStudent.FirstName @aStudent.LastName</div>
-    }*@
+<table class="table">
+    <thead>
+        <tr>
+            <th> Student Name </th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var student in Model.Students)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => student.FirstName)
+                    @Html.DisplayFor(modelItem => student.LastName)
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
 
-</div>
+<h4>Instructors</h4>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th> Instructor Name </th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var instructor in Model.Instructors)
+        {
+            <tr>
+                <td>
+                    @Html.DisplayFor(modelItem => instructor.FirstName)
+                    @Html.DisplayFor(modelItem => instructor.LastName)
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
