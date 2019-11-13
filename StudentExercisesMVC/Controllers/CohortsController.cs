@@ -4,21 +4,64 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using StudentExercises;
+using StudentExercisesMVC.Models;
+using StudentExercises.Models.ViewModels;
+
 
 namespace StudentExercisesMVC.Controllers
 {
     public class CohortsController : Controller
     {
+        private readonly IConfiguration _config;
+        public CohortsController(IConfiguration config)
+        {
+            _config = config;
+        }
+        public SqlConnection Connection
+        {
+            get
+            {
+                return new SqlConnection(_config.GetConnectionString("DefaultConnection"));
+            }
+        }
+
         // GET: Cohorts
         public ActionResult Index()
         {
-            return View();
+            using (SqlConnection conn = Connection)
+            {
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"SELECT Id, CohortName
+                                                            FROM Cohort";
+                    SqlDataReader reader = cmd.ExecuteReader();
+
+                    List<Cohort> cohorts = new List<Cohort>();
+                    while (reader.Read())
+                    {
+                        Cohort cohort = new Cohort()
+                        {
+                            Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                            CohortName = reader.GetString(reader.GetOrdinal("CohortName"))
+                        };
+
+                        cohorts.Add(cohort);
+                    }
+                    reader.Close();
+                    return View(cohorts);
+                }
+            }
         }
 
         // GET: Cohorts/Details/5
         public ActionResult Details(int id)
         {
-            return View();
+            var cohort = GetById(id);
+            return View(cohort);
         }
 
         // GET: Cohorts/Create
@@ -47,7 +90,8 @@ namespace StudentExercisesMVC.Controllers
         // GET: Cohorts/Edit/5
         public ActionResult Edit(int id)
         {
-            return View();
+            var cohort = GetById(id);
+            return View(cohort);
         }
 
         // POST: Cohorts/Edit/5
@@ -70,7 +114,8 @@ namespace StudentExercisesMVC.Controllers
         // GET: Cohorts/Delete/5
         public ActionResult Delete(int id)
         {
-            return View();
+            var cohort = GetById(id);
+            return View(cohort);
         }
 
         // POST: Cohorts/Delete/5
@@ -87,6 +132,35 @@ namespace StudentExercisesMVC.Controllers
             catch
             {
                 return View();
+            }
+        }
+
+        private Cohort GetById(int id)
+        {
+            using (SqlConnection conn = Connection)
+            {
+                conn.Open();
+                using (SqlCommand cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @" SELECT c.Id, c.CohortName
+                                                            FROM Cohort c
+                                                            WHERE id = @id";
+                    cmd.Parameters.Add(new SqlParameter("@id", id));
+                    SqlDataReader reader = cmd.ExecuteReader();
+
+                    Cohort theCohort = null;
+                    if (reader.Read())
+                    {
+                        theCohort = new Cohort
+                        {
+                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                                CohortName = reader.GetString(reader.GetOrdinal("CohortName"))
+                        };
+                    }
+
+                    reader.Close();
+                    return theCohort;
+                }
             }
         }
     }

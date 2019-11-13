@@ -1,6 +1,6 @@
 using StudentExercisesMVC.Models;
 
-namespace StudentExercises
+namespace StudentExercisesMVC.Models
 {
     public class Instructor 
     {

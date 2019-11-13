@@ -1,7 +1,7 @@
 using System;
 
 
-namespace StudentExercises
+namespace StudentExercisesMVC.Models
 {
     public class Exercise
     {

@@ -2,7 +2,7 @@ using StudentExercisesMVC.Models;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
-namespace StudentExercises
+namespace StudentExercisesMVC.Models
 {
     public class Cohort
     {
