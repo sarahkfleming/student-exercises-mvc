@@ -73,13 +73,21 @@ namespace StudentExercisesMVC.Controllers
         // POST: Cohorts/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Create(IFormCollection collection)
+        public ActionResult Create(Cohort cohort)
         {
             try
             {
-                // TODO: Add insert logic here
-
-                return RedirectToAction(nameof(Index));
+                using (SqlConnection conn = Connection)
+                {
+                    conn.Open();
+                    using (SqlCommand cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"INSERT INTO Cohort VALUES (@CohortName)";
+                        cmd.Parameters.Add(new SqlParameter("@CohortName", cohort.CohortName));
+                        cmd.ExecuteNonQuery();
+                        return RedirectToAction(nameof(Index));
+                    }
+                }
             }
             catch
             {
@@ -97,13 +105,38 @@ namespace StudentExercisesMVC.Controllers
         // POST: Cohorts/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Edit(int id, IFormCollection collection)
+        public ActionResult Edit(int id, Cohort cohort)
         {
             try
             {
                 // TODO: Add update logic here
+                using (SqlConnection conn = Connection)
+                {
+                    conn.Open();
+                    using (SqlCommand cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"UPDATE Cohort 
+                            SET CohortName = @CohortName
+                                    WHERE Id = @Id";
+                        cmd.Parameters.Add(new SqlParameter("@CohortName", cohort.CohortName));
+                        cmd.Parameters.Add(new SqlParameter("@id", id));
 
-                return RedirectToAction(nameof(Index));
+                        SqlDataReader reader = cmd.ExecuteReader();
+
+                        Cohort theCohort = null;
+                        if (reader.Read())
+                        {
+                            theCohort = new Cohort
+                            {
+                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
+                                CohortName = reader.GetString(reader.GetOrdinal("CohortName")),
+                            };
+                        }
+
+                        reader.Close();
+                        return RedirectToAction(nameof(Index));
+                    }
+                }
             }
             catch
             {
@@ -126,11 +159,35 @@ namespace StudentExercisesMVC.Controllers
             try
             {
                 // TODO: Add delete logic here
+                using (SqlConnection conn = Connection)
+                {
+                    conn.Open();
+                    using (SqlCommand cmd = conn.CreateCommand())
+                    {
+                        //cmd.CommandText = @"SELECT c. Id, c.CohortName, s.FirstName, s.LastName, i.FirstName, i.LastName
+                        //                                        FROM Cohort c
+                        //                                        OUTER JOIN Student s ON c.Id = s.CohortId
+                        //                                        OUTER JOIN Instructor i ON c.Id = i.CohortId
+                        //                                        WHERE c.Id = @id";
+                        //cmd.Parameters.Add(new SqlParameter("@Id", id));
 
-                return RedirectToAction(nameof(Index));
+
+                        cmd.CommandText = @"DELETE FROM Cohort WHERE Id = @id";
+
+                        cmd.Parameters.Add(new SqlParameter("@id", id));
+
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        if (rowsAffected > 0)
+                        {
+                            return RedirectToAction(nameof(Index));
+                        }
+                        throw new Exception("No rows affected.");
+                    }
+                }
             }
             catch
             {
+                //throw new Exception("You cannot delete this Cohort until you reassign all of its Students and Instructors to another Cohort.");
                 return View();
             }
         }
@@ -142,8 +199,8 @@ namespace StudentExercisesMVC.Controllers
                 conn.Open();
                 using (SqlCommand cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = @" SELECT c.Id, c.CohortName
-                                                            FROM Cohort c
+                    cmd.CommandText = @" SELECT Id, CohortName
+                                                            FROM Cohort
                                                             WHERE id = @id";
                     cmd.Parameters.Add(new SqlParameter("@id", id));
                     SqlDataReader reader = cmd.ExecuteReader();
