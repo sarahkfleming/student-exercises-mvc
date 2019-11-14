@@ -164,15 +164,15 @@ namespace StudentExercisesMVC.Controllers
                     conn.Open();
                     using (SqlCommand cmd = conn.CreateCommand())
                     {
-                        //cmd.CommandText = @"SELECT c. Id, c.CohortName, s.FirstName, s.LastName, i.FirstName, i.LastName
-                        //                                        FROM Cohort c
-                        //                                        OUTER JOIN Student s ON c.Id = s.CohortId
-                        //                                        OUTER JOIN Instructor i ON c.Id = i.CohortId
-                        //                                        WHERE c.Id = @id";
-                        //cmd.Parameters.Add(new SqlParameter("@Id", id));
+                        cmd.CommandText = @"SELECT c.Id, c.CohortName,
+                                                                                i.FirstName, i.LastName, i.CohortId,
+				                                                                s.FirstName, s.LastName, s.CohortId
+                                                                FROM Cohort AS c
+                                                                        LEFT JOIN Instructor i ON c.Id = i.CohortId
+                                                                        LEFT JOIN Student s ON c.Id = s.CohortId
+                                                                WHERE(s.CohortId IS NOT NULL OR i.CohortId IS NOT NULL) AND c.Id = @id";
 
-
-                        cmd.CommandText = @"DELETE FROM Cohort WHERE Id = @id";
+                        //cmd.CommandText = @"DELETE FROM Cohort WHERE Id = @id";
 
                         cmd.Parameters.Add(new SqlParameter("@id", id));
 

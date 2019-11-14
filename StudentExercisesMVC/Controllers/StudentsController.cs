@@ -74,7 +74,7 @@ namespace StudentExercisesMVC.Controllers
         // Details is a "Get One" type of method
         public ActionResult Details(int id)
         {
-            var student = GetById(id);
+            var student = GetStudentById(id);
             return View(student);
         }
 
@@ -82,22 +82,11 @@ namespace StudentExercisesMVC.Controllers
         [HttpGet]
         public ActionResult Create()
         {
-            var viewModel = new StudentCreateViewModel();
-            var cohorts = GetAllCohorts();
-            var selectItems = cohorts
-                .Select(cohort => new SelectListItem
-                {
-                    Text = cohort.CohortName,
-                    Value = cohort.Id.ToString()
-                })
-                .ToList();
-
-            selectItems.Insert(0, new SelectListItem
+            var viewModel = new StudentCreateViewModel()
             {
-                Text = "Choose cohort...",
-                Value = "0"
-            });
-            viewModel.Cohorts = selectItems;
+                Cohorts = GetAllCohorts()
+            };
+
             return View(viewModel);
         }
 
@@ -129,17 +118,24 @@ namespace StudentExercisesMVC.Controllers
         // GET: Student/Edit/5
         public ActionResult Edit(int id)
         {
-            var student = GetById(id);
-            return View(student);
+            var viewModel = new StudentEditViewModel()
+            {
+                Student = GetStudentById(id),
+                Cohorts = GetAllCohorts()
+            };
+            return View(viewModel);
         }
 
         // POST: Student/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Edit(int id, Student student)
+        public ActionResult Edit(int id, StudentEditViewModel viewModel)
+
         {
+            var updatedStudent = viewModel.Student;
             try
             {
+
                 using (SqlConnection conn = Connection)
                 {
                     conn.Open();
@@ -151,50 +147,42 @@ namespace StudentExercisesMVC.Controllers
                              SlackHandle = @SlackHandle,
                              CohortId = @CohortId
                                     WHERE Id = @Id";
-                        cmd.Parameters.Add(new SqlParameter("@FirstName", student.FirstName));
-                        cmd.Parameters.Add(new SqlParameter("@LastName", student.LastName));
-                        cmd.Parameters.Add(new SqlParameter("@SlackHandle", student.SlackHandle));
-                        cmd.Parameters.Add(new SqlParameter("@CohortId", student.CohortId));
+                        cmd.Parameters.Add(new SqlParameter("@FirstName", updatedStudent.FirstName));
+                        cmd.Parameters.Add(new SqlParameter("@LastName", updatedStudent.LastName));
+                        cmd.Parameters.Add(new SqlParameter("@SlackHandle", updatedStudent.SlackHandle));
+                        cmd.Parameters.Add(new SqlParameter("@CohortId", updatedStudent.CohortId));
                         cmd.Parameters.Add(new SqlParameter("@id", id));
 
-                        SqlDataReader reader = cmd.ExecuteReader();
-
-                        Student theStudent = null;
-                        if (reader.Read())
-                        {
-                            theStudent = new Student
-                            {
-                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                                FirstName = reader.GetString(reader.GetOrdinal("FirstName")),
-                                LastName = reader.GetString(reader.GetOrdinal("LastName")),
-                                SlackHandle = reader.GetString(reader.GetOrdinal("SlackHandle")),
-                                CohortId = reader.GetInt32(reader.GetOrdinal("CohortId"))
-                            };
-                        }
-
-                        reader.Close();
-                        return RedirectToAction(nameof(Index));
+                        cmd.ExecuteNonQuery();
                     }
                 }
 
+                return RedirectToAction(nameof(Index));
             }
             catch
             {
-                return View();
+                viewModel = new StudentEditViewModel()
+                {
+                    Student = updatedStudent,
+                    Cohorts = GetAllCohorts()
+                };
+
+                return View(viewModel);
             }
         }
 
         // GET: Student/Delete/5
         public ActionResult Delete(int id)
         {
-            var student = GetById(id);
+            var student = GetStudentById(id);
             return View(student);
         }
 
         // POST: Student/Delete/5
         [HttpPost]
+        [ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public ActionResult Delete(int id, IFormCollection collection)
+        public ActionResult DeleteConfirmed(int id)
         {
             try
             {
@@ -204,18 +192,12 @@ namespace StudentExercisesMVC.Controllers
                     using (SqlCommand cmd = conn.CreateCommand())
                     {
                         cmd.CommandText = "DELETE FROM StudentExercise WHERE StudentId = @id; DELETE FROM Student WHERE Id = @id";
-
                         cmd.Parameters.Add(new SqlParameter("@id", id));
 
-                        int rowsAffected = cmd.ExecuteNonQuery();
-                        if (rowsAffected > 0)
-                        {
-                            return RedirectToAction(nameof(Index));
-                        }
-                        throw new Exception("No rows affected");
+                        cmd.ExecuteNonQuery();
                     }
                 }
-
+                return RedirectToAction(nameof(Index));
             }
             catch
             {
@@ -224,7 +206,7 @@ namespace StudentExercisesMVC.Controllers
         }
 
         // Create private method to get a student by Id so that you can use it in multiple places within the controller
-        private Student GetById(int id)
+        private Student GetStudentById(int id)
         {
             using (SqlConnection conn = Connection)
             {
