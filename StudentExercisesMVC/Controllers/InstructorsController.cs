@@ -74,7 +74,7 @@ namespace InstructorExercisesMVC.Controllers
         // Details is a "Get One" type of method
         public ActionResult Details(int id)
         {
-            var instructor = GetById(id);
+            var instructor = GetInstructorById(id);
             return View(instructor);
         }
 
@@ -82,62 +82,77 @@ namespace InstructorExercisesMVC.Controllers
         [HttpGet]
         public ActionResult Create()
         {
-            var viewModel = new InstructorCreateViewModel();
-            var cohorts = GetAllCohorts();
-            var selectItems = cohorts
-                .Select(cohort => new SelectListItem
-                {
-                    Text = cohort.CohortName,
-                    Value = cohort.Id.ToString()
-                })
-                .ToList();
-
-            selectItems.Insert(0, new SelectListItem
+            var viewModel = new InstructorCreateViewModel()
             {
-                Text = "Choose cohort...",
-                Value = "0"
-            });
-            viewModel.Cohorts = selectItems;
+                Cohorts = GetAllCohorts()
+            };
+            //var cohorts = GetAllCohorts();
+            //var selectItems = cohorts
+            //    .Select(cohort => new SelectListItem
+            //    {
+            //        Text = cohort.CohortName,
+            //        Value = cohort.Id.ToString()
+            //    })
+            //    .ToList();
+
+            //selectItems.Insert(0, new SelectListItem
+            //{
+            //    Text = "Choose cohort...",
+            //    Value = "0"
+            //});
+            //viewModel.Cohorts = selectItems;
             return View(viewModel);
         }
 
         // POST: Instructor/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<ActionResult> Create(InstructorCreateViewModel model)
+        public async Task<ActionResult> Create(InstructorCreateViewModel viewModel)
         {
-            using (SqlConnection conn = Connection)
+            try
             {
-                conn.Open();
-                using (SqlCommand cmd = conn.CreateCommand())
+                var newInstructor = viewModel.Instructor;
+                using (SqlConnection conn = Connection)
                 {
-                    cmd.CommandText = @"INSERT INTO Instructor
+                    conn.Open();
+                    using (SqlCommand cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = @"INSERT INTO Instructor
                 ( FirstName, LastName, SlackHandle, CohortId )
                 VALUES
                 ( @firstName, @lastName, @slackHandle, @cohortId )";
-                    cmd.Parameters.Add(new SqlParameter("@firstName", model.Instructor.FirstName));
-                    cmd.Parameters.Add(new SqlParameter("@lastName", model.Instructor.LastName));
-                    cmd.Parameters.Add(new SqlParameter("@slackHandle", model.Instructor.SlackHandle));
-                    cmd.Parameters.Add(new SqlParameter("@cohortId", model.Instructor.CohortId));
-                    await cmd.ExecuteNonQueryAsync();
-
-                    return RedirectToAction(nameof(Index));
+                        cmd.Parameters.Add(new SqlParameter("@firstName", newInstructor.FirstName));
+                        cmd.Parameters.Add(new SqlParameter("@lastName", newInstructor.LastName));
+                        cmd.Parameters.Add(new SqlParameter("@slackHandle", newInstructor.SlackHandle));
+                        cmd.Parameters.Add(new SqlParameter("@cohortId", newInstructor.CohortId));
+                        await cmd.ExecuteNonQueryAsync();
+                    }
                 }
+                return RedirectToAction(nameof(Index));
+            }
+            catch
+            {
+                return View();
             }
         }
 
         // GET: Instructor/Edit/5
         public ActionResult Edit(int id)
         {
-            var instructor = GetById(id);
-            return View(instructor);
+            var viewModel = new InstructorEditViewModel()
+            {
+                Instructor = GetInstructorById(id),
+                Cohorts = GetAllCohorts()
+            };
+            return View(viewModel);
         }
 
         // POST: Instructor/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public ActionResult Edit(int id, Instructor instructor)
+        public ActionResult Edit(int id, InstructorEditViewModel viewModel)
         {
+            var updatedInstructor = viewModel.Instructor;
             try
             {
                 using (SqlConnection conn = Connection)
@@ -151,50 +166,41 @@ namespace InstructorExercisesMVC.Controllers
                              SlackHandle = @SlackHandle,
                              CohortId = @CohortId
                                     WHERE Id = @Id";
-                        cmd.Parameters.Add(new SqlParameter("@FirstName", instructor.FirstName));
-                        cmd.Parameters.Add(new SqlParameter("@LastName", instructor.LastName));
-                        cmd.Parameters.Add(new SqlParameter("@SlackHandle", instructor.SlackHandle));
-                        cmd.Parameters.Add(new SqlParameter("@CohortId", instructor.CohortId));
+                        cmd.Parameters.Add(new SqlParameter("@FirstName", updatedInstructor.FirstName));
+                        cmd.Parameters.Add(new SqlParameter("@LastName", updatedInstructor.LastName));
+                        cmd.Parameters.Add(new SqlParameter("@SlackHandle", updatedInstructor.SlackHandle));
+                        cmd.Parameters.Add(new SqlParameter("@CohortId", updatedInstructor.CohortId));
                         cmd.Parameters.Add(new SqlParameter("@id", id));
 
-                        SqlDataReader reader = cmd.ExecuteReader();
-
-                        Instructor theInstructor = null;
-                        if (reader.Read())
-                        {
-                            theInstructor = new Instructor
-                            {
-                                Id = reader.GetInt32(reader.GetOrdinal("Id")),
-                                FirstName = reader.GetString(reader.GetOrdinal("FirstName")),
-                                LastName = reader.GetString(reader.GetOrdinal("LastName")),
-                                SlackHandle = reader.GetString(reader.GetOrdinal("SlackHandle")),
-                                CohortId = reader.GetInt32(reader.GetOrdinal("CohortId"))
-                            };
-                        }
-
-                        reader.Close();
-                        return RedirectToAction(nameof(Index));
+                        cmd.ExecuteNonQuery();
                     }
                 }
-
+                return RedirectToAction(nameof(Index));
             }
             catch
             {
-                return View();
+                viewModel = new InstructorEditViewModel()
+                {
+                    Instructor = updatedInstructor,
+                    Cohorts = GetAllCohorts()
+                };
+
+                return View(viewModel);
             }
         }
 
         // GET: Instructor/Delete/5
         public ActionResult Delete(int id)
         {
-            var instructor = GetById(id);
+            var instructor = GetInstructorById(id);
             return View(instructor);
         }
 
         // POST: Instructor/Delete/5
         [HttpPost]
+        [ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        public ActionResult Delete(int id, IFormCollection collection)
+        public ActionResult DeleteConfirmed(int id)
         {
             try
             {
@@ -204,18 +210,12 @@ namespace InstructorExercisesMVC.Controllers
                     using (SqlCommand cmd = conn.CreateCommand())
                     {
                         cmd.CommandText = "DELETE FROM Instructor WHERE Id = @id";
-
                         cmd.Parameters.Add(new SqlParameter("@id", id));
 
-                        int rowsAffected = cmd.ExecuteNonQuery();
-                        if (rowsAffected > 0)
-                        {
-                            return RedirectToAction(nameof(Index));
-                        }
-                        throw new Exception("No rows affected");
+                        cmd.ExecuteNonQuery();
                     }
                 }
-
+                return RedirectToAction(nameof(Index));
             }
             catch
             {
@@ -224,7 +224,7 @@ namespace InstructorExercisesMVC.Controllers
         }
 
         // Create private method to get a instructor by Id so that you can use it in multiple places within the controller
-        private Instructor GetById(int id)
+        private Instructor GetInstructorById(int id)
         {
             using (SqlConnection conn = Connection)
             {

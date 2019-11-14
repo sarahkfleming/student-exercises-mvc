@@ -5,9 +5,10 @@ using System.Linq;
 
 namespace StudentExercises.Models.ViewModels
 {
-    public class InstructorCreateViewModel
+    public class InstructorEditViewModel
     {
         public Instructor Instructor { get; set; }
+
         public List<Cohort> Cohorts { get; set; } = new List<Cohort>();
         public List<SelectListItem> CohortOptions
         {
@@ -16,13 +17,8 @@ namespace StudentExercises.Models.ViewModels
                 if (Cohorts == null) return null;
 
                 return Cohorts
-                    .Select(cohort => new SelectListItem
-                    {
-                        Text = cohort.CohortName,
-                        Value = cohort.Id.ToString()
-                    })
+                    .Select(cohort => new SelectListItem(cohort.CohortName, cohort.Id.ToString()))
                     .ToList();
-
             }
         }
     }
